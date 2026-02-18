@@ -1,0 +1,482 @@
+<!doctype html>
+<html lang="th" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Score Assessment Game</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    * { font-family: 'Outfit', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    .score-btn {
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .score-btn::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+      transition: left 0.5s;
+    }
+    .score-btn:hover::before {
+      left: 100%;
+    }
+    .score-btn.selected {
+      transform: scale(1.1);
+      box-shadow: 0 0 20px rgba(99, 102, 241, 0.5);
+    }
+    .progress-fill {
+      transition: width 0.5s ease;
+    }
+    .fade-in {
+      animation: fadeIn 0.4s ease;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .result-badge {
+      animation: popIn 0.5s ease;
+    }
+    @keyframes popIn {
+      0% { transform: scale(0); }
+      70% { transform: scale(1.1); }
+      100% { transform: scale(1); }
+    }
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.7; }
+    }
+  </style>
+  <style>body { box-sizing: border-box; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full bg-slate-900 text-white overflow-auto">
+  <div id="app" class="min-h-full w-full flex flex-col items-center justify-center p-6">
+   <!-- Start Screen -->
+   <div id="start-screen" class="text-center fade-in">
+    <div class="mb-8">
+     <div class="w-24 h-24 mx-auto mb-6 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+      <svg class="w-12 h-12 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+      </svg>
+     </div>
+     <h1 id="main-title" class="text-4xl font-bold mb-3 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">การประเมินผลลั���ธ์</h1>
+     <p class="text-slate-400 text-lg">5 ตอน • 10 คำถามต่อตอน • ให้คะแนน 1-7</p>
+    </div>
+    <div class="bg-slate-800/50 rounded-2xl p-6 mb-8 max-w-md mx-auto border border-slate-700">
+     <h3 class="font-semibold mb-4 text-indigo-300">แนวทางการให้คะแนน</h3>
+     <div class="space-y-2 text-sm">
+      <div class="flex justify-between items-center">
+       <span class="text-slate-400">10 - 35 คะแนน</span> <span class="px-3 py-1 rounded-full bg-red-500/20 text-red-400 font-medium">ต้องปรับปรุง</span>
+      </div>
+      <div class="flex justify-between items-center">
+       <span class="text-slate-400">36 - 59 คะแนน</span> <span class="px-3 py-1 rounded-full bg-amber-500/20 text-amber-400 font-medium">ดี</span>
+      </div>
+      <div class="flex justify-between items-center">
+       <span class="text-slate-400">60 - 70 คะแนน</span> <span class="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400 font-medium">ความเป็นเลิศ</span>
+      </div>
+     </div>
+    </div><button onclick="startGame()" class="px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl font-semibold text-lg hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-105"> เริ่มการประเมินผล </button>
+   </div><!-- Game Screen -->
+   <div id="game-screen" class="hidden w-full max-w-2xl fade-in">
+    <!-- Progress Header -->
+    <div class="mb-8">
+     <div class="flex justify-between items-center mb-3">
+      <span id="part-indicator" class="text-indigo-400 font-semibold">ตอนท���� 1 จาก 5</span> <span id="question-indicator" class="text-slate-400">คำถามที่ 1 จาก 10</span>
+     </div>
+     <div class="h-2 bg-slate-700 rounded-full overflow-hidden">
+      <div id="progress-bar" class="h-full bg-gradient-to-r from-indigo-500 to-purple-500 progress-fill" style="width: 2%"></div>
+     </div>
+    </div><!-- Question Card -->
+    <div class="bg-slate-800/70 rounded-2xl p-8 border border-slate-700 mb-6">
+     <div class="text-center mb-8">
+      <span class="inline-block px-4 py-1 bg-indigo-500/20 text-indigo-300 rounded-full text-sm font-medium mb-4"> คำถามที่ <span id="q-number">1</span> </span>
+      <h2 id="question-text" class="text-xl font-medium text-slate-200">ให้คะแนนการตอบสนองต่อข้อความนี้</h2>
+     </div><!-- Score Buttons -->
+     <div class="flex justify-center gap-3 flex-wrap">
+      <button onclick="selectScore(1)" class="score-btn w-14 h-14 rounded-xl bg-gradient-to-br from-red-500 to-red-600 font-bold text-lg hover:from-red-400 hover:to-red-500 shadow-lg" data-score="1">1</button> <button onclick="selectScore(2)" class="score-btn w-14 h-14 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 font-bold text-lg hover:from-orange-400 hover:to-orange-500 shadow-lg" data-score="2">2</button> <button onclick="selectScore(3)" class="score-btn w-14 h-14 rounded-xl bg-gradient-to-br from-amber-500 to-amber-600 font-bold text-lg hover:from-amber-400 hover:to-amber-500 shadow-lg" data-score="3">3</button> <button onclick="selectScore(4)" class="score-btn w-14 h-14 rounded-xl bg-gradient-to-br from-yellow-500 to-yellow-600 font-bold text-lg hover:from-yellow-400 hover:to-yellow-500 shadow-lg" data-score="4">4</button> <button onclick="selectScore(5)" class="score-btn w-14 h-14 rounded-xl bg-gradient-to-br from-lime-500 to-lime-600 font-bold text-lg hover:from-lime-400 hover:to-lime-500 shadow-lg" data-score="5">5</button> <button onclick="selectScore(6)" class="score-btn w-14 h-14 rounded-xl bg-gradient-to-br from-green-500 to-green-600 font-bold text-lg hover:from-green-400 hover:to-green-500 shadow-lg" data-score="6">6</button> <button onclick="selectScore(7)" class="score-btn w-14 h-14 rounded-xl bg-gradient-to-br from-emerald-500 to-emerald-600 font-bold text-lg hover:from-emerald-400 hover:to-emerald-500 shadow-lg" data-score="7">7</button>
+     </div>
+     <div class="flex justify-between text-xs text-slate-500 mt-3 px-2">
+      <span>ต��ำสุด</span> <span>สูงสุด</span>
+     </div>
+    </div><!-- Current Score -->
+    <div class="text-center">
+     <span class="text-slate-400">คะแนนตอนนี้: </span> <span id="current-score" class="text-2xl font-bold text-indigo-400">0</span> <span class="text-slate-500"> / 70</span>
+    </div>
+   </div><!-- Part Result Screen -->
+   <div id="part-result-screen" class="hidden text-center max-w-md w-full fade-in">
+    <div id="result-badge" class="result-badge w-32 h-32 mx-auto mb-6 rounded-full flex items-center justify-center">
+     <span id="result-emoji" class="text-6xl"></span>
+    </div>
+    <h2 id="part-complete-title" class="text-2xl font-bold mb-2">เรียบร้อย</h2>
+    <p id="part-subtitle" class="text-indigo-400 font-semibold mb-1 text-sm">ตอนที่ 1 ACCOUNTABILITY : สำนึกรับผิดชอบ</p>
+    <p id="part-subtitle-thai" class="text-indigo-300 font-medium mb-4"></p>
+    <p class="text-slate-400 mb-6">คะแนนของคุณสำหรับตอนนี้:</p>
+    <div class="bg-slate-800/70 rounded-2xl p-6 border border-slate-700 mb-6">
+     <div id="part-score-display" class="text-5xl font-bold mb-2">
+      0
+     </div>
+     <div id="part-rating" class="text-xl font-semibold">
+      ให้คะแนน
+     </div>
+    </div><button id="next-part-btn" onclick="nextPart()" class="px-8 py-4 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl font-semibold text-lg hover:from-indigo-600 hover:to-purple-700 transition-all shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50 hover:scale-105"> ต่อไปยังตอนที่ 2 </button>
+   </div><!-- Final Result Screen -->
+   <div id="final-result-screen" class="hidden text-center max-w-lg w-full fade-in">
+    <div class="mb-8">
+     <div class="w-20 h-20 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+      <svg class="w-10 h-10 text-white" fill="none" stroke="currentColor" viewbox="0 0 24 24">
+       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"></path>
+      </svg>
+     </div>
+     <h1 class="text-3xl font-bold mb-2">การประเมินผลสำ���ร���จแล้ว!</h1>
+     <p class="text-slate-400">นี่คือผลการวิเคราะห์โดยละเอียด</p>
+    </div>
+    <div id="final-results-container" class="space-y-3 mb-8">
+     <!-- Results will be inserted here -->
+    </div>
+    <div class="bg-gradient-to-br from-indigo-500/20 to-purple-500/20 rounded-2xl p-6 border border-indigo-500/30 mb-8">
+     <p class="text-slate-400 mb-2">คะแนนรวม</p>
+     <div id="total-score" class="text-5xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+      0
+     </div>
+     <p class="text-slate-500 mt-1">ทั้งหมด 350</p>
+    </div><button onclick="restartGame()" class="px-8 py-4 bg-slate-700 hover:bg-slate-600 rounded-xl font-semibold text-lg transition-all"> เริ่มใหม่ </button>
+   </div>
+  </div>
+  <script>
+    // Default configuration
+    const defaultConfig = {
+      game_title: 'การป��ะ���มินผลคะแนน',
+      part_label: 'ตอนที่'
+    };
+
+    // Game state
+    let currentPart = 1;
+    let currentQuestion = 1;
+    let currentPartScore = 0;
+    let partScores = [];
+    let selectedScore = null;
+
+    // Questions for each part (10 questions x 5 parts)
+    const questions = [
+      // Part 1 - Responsibility (ความรับผิดชอบ)
+      [
+        "ฉันสอบถามหัวหน้าเกี่ยวกับความคาดหวังที่มีต่อฉัน",
+        "เมื่อมีโครงการใหม่เกิดขึ้น ฉันจะตรวจสอบภาระงานทั้งหมดใ��ความรับผิดชอบก่อนที่จะยอมรับผิดชอบในโครงการใหม่นั้น",
+        "ฉันเข้าร่วมการประชุมพนักงาน ศึกษาเอกสารที่เกี่ยวข้องและติดตามข่าวหนังสือพิมพ์เพื่อให้ทันต่อเหตุการณ์ล่าสุดในบริษัท",
+        "เมื่อผู้บริหารของฉันขอให้ฉันทำงานใหม่ ฉันจะถามเขาเรื่องผลลัพธ์ที่เขาต้องการให้ชัดเจนก่อนว่าต้องการให้ฉันทำอะไร",
+        "เมื่อฉันทำผิดพลาด ฉันยอมรับควา���ผิดอย่างไม่ลังเล",
+        "ฉันขอคำติชมจากหัวหน้าเกี่ยวกับผลการปฏิบัติงานของฉัน",
+        "หัวหน้าและฉันประชุมกันทุกวันเพื่ออัปเดตข้อมูลกันและกัน",
+        "เมื่อหัวหน้าขาดการประชุม ฉันจะทำหน้าที่รับผิดชอบแทน",
+        "ฉันเป็นผู้เริ่มติดต่อกับหัวหน้า โดยการขอการอัปเดตงานและส่งรายงานความคืบหน้ากลับให้หัวหน้า",
+        "ฉันมีความพึงพอใจในงานของฉัน"
+      ],
+      // Part 2 - Problem Solving (การแก้ปัญหา)
+      [
+        "เมื่อเกิดวิก��ตในงานที่รับผิดชอบ เช่น เครื่องถ่า��เอกสารมีปัญหา ฉันสนุกกับความท้าทายในการแก้ปัญหานั้น",
+        "ฉันลงมือแก้ปัญหามากกว่าที่จะบ่นเกี่ยวกับปัญหานั้น",
+        "เมื่อรู้ตัวว่าฉันไม่มีทักษะในการปฏิบัติงานที่ได้รับมอบหมาย ฉันสามารถขอความช่วยเหลือจากผู้อื่นหรือขอฝึกอบรมเพื่อพัฒนาทักษะ",
+        "ฉันสร้างวิธีแก้ปัญหา เพื่อป้องกันไม่ให้ปัญหาเดิมๆ เกิดขึ้นซ้ำแล้วซ้ำเล่า",
+        "ฉันมองหาปัญหาที่อาจเกิดขึ้น (potential problem) และลงมือทำเพื่อป้องกันไม่ให้มันเกิด",
+        "ฉันคาดการณ์ไว้เสมอว่าปัญหาอาจเกิดขึ้นได้ในการทำงาน",
+        "ฉันพยายามแก้ไขปัญหาด้วยตัวเองจนสูดความสามารถก่อนนำปัญหาไปปรึกษาหัวหน้า",
+        "ฉันไปหาหัวหน้าเพื่อขอความช่วยเหลือ และ/หรือ การสนับสนุนเมื่อฉันต้องการ",
+        "ฉันไม่อุตุ่นหงิดและอารมณ์เสียเมื่อเกิดปัญหาขึ้นกับงานของฉัน",
+        "ฉันเรียนรู้จากปัญหาที่เกิดขึ้นและนำประสบการณ์ไปใช้ให้เป็นประโยชน์ในอนาคต"
+      ],
+      // Part 3 - Commitment (ความมุ่งมั่นในการทำงาน)
+      [
+        "ฉันเข้าใจ���ันธกิจหลัก เป้าหมาย และวัตถุประสงค์ขององค์กรที่ฉันทำอยู่อย่างชัดเจน",
+        "ฉันแจ้งให้หัวหน้าทราบ เรื่องการประชุมของเราที่กำลังอยู่นอกลำดับการประชุม",
+        "ฉันได้รับรางวัลหรือผลการประเมินการทำงานที่ยอดเยี่ยมทั้งในอดีตจนถึงปัจจุบัน",
+        "ผลลัพธ์ของงานที่ฉันได้สร้างขึ้น ได้ส่งผลต่อความสามารถในการสร้างผลงานให้ก��บผู้บริหารด้วย",
+        "ฉันพบกับหัวหน้าทุกวัน (ท��งโทรศัพท์ หรือพบต่อหน้า) เพื่อดูว่าเขาต้องการความช่วยเหลือเพิ่มเติมอะไรบ้าง",
+        "ฉันเข้าใจวัตถุประสงค์ของการประชุมได้อย่างชัดเจนทุกครั้งที่เข้าร่วมประชุม",
+        "ฉันสามารถจัดการโครงการให้สำเร็จได้",
+        "ฉันเข้าใจชัดเจนมากเกี่ยวกับผลลัพธ์ที่ฉันจะต้องทำในงานของฉัน",
+        "เมื่อฉันตอบตกลง ฉันหมายความว่า ฉันจะทำสิ��งนั้นให้สำเร็จ ไม่ใช่แค่จะพยายามทำ",
+        "ฉันติดตามตรวจสอบคนที่ไม่สัญญาและขอให้ทำสัญญาใหม่"
+      ],
+      // Part 4 - Learning & Development (การพัฒนาและการเรียนรู้)
+      [
+        "ฉันเข้าเรียนสัมมนาหรือเวิร์กชอ��ต่างๆ เพื่อปรับปรุงความรู้/ทั��ษะในการ��ำงาน",
+        "ฉันศึกษาคู่��ือ มาต��ฐานการปฏิบัติงานเพื่อเพิ่มประสิทธิภาพในการทำงาน",
+        "ฉันมีคนในที่ทำงานที่ฉันถือว่าเป็น 'ที่ปรึกษา' (Mentor)",
+        "ฉันมองหาทักษะใหม่ๆ ที่��ามารถเรียนรู้เพื่อเพิ่มคุณค่าของตัวเองให้กับ��ริษัท",
+        "ฉันทำการสัมภาษณ์ข้อมูลกับบุคคลในบริษัทที่มีตำแหน่งงานที่ฉันสนใจ",
+        "ฉันขอความช่วยเหลือ เมื่���ไม่��ู้วิธีทำบางสิ่ง",
+        "ฉันสนุกกับการมองหาวิธีพัฒนางานของฉัน",
+        "ฉันสนุกกับการทำงานในสภาพแวดล้อมที่เปลี่ยนแปลงตลอดเวลา",
+        "ฉันสนุกกับความท้าทายในการทำงานที่ฉันไม่คุ้นทำมาก่อน",
+        "ฉันขอคำแนะนำและความคิดเห็นจากเพื่อนร่วมงานเมื่อทำโครงการใหม่"
+      ],
+      // Part 5 - Communication (การสื่อสาร)
+      [
+        "เมื่อฉันขอให้เพื่อนร่วมงานทำงานให้ ฉันจะถามคำถามเพื่อให้แน่ใจว่าได้ผ���ลัพธ์ตามที่ฉันคาดหวัง",
+        "เมื่อฉันได้รับมอบหมายงาน ฉันจะถามคำถามจนกว่าฉันจะเข้าใจอย่างชัดเจนเกี่ยวกับผลลัพธ์ที่คาดหวังจากฉัน",
+        "ฉันระบุวัตถุประสงค์ในการสื่อสารทุกครั้งที่ฉันเป็นคนเริ่มสื่อสาร",
+        "เมื่อฉันขอร้องคนอื่น ฉันจะขอให้เขาทวนผลลัพธ์ที่จะต้องส่งมอบ",
+        "ฉันให้ค��ามสนใจอย่างเต็มที่เมื่อได้สนทนากับหัวหน้า",
+        "เมื่อมี���นเริ่มการสื่อสารกับฉัน ฉันจะถามคำถามเพื่อทำความเข้าใจวัตถุประสงค์ของการสนทนานั้น",
+        "ก่อนจะขอร้องใคร ฉันจะมีความชัดเจนอย่างยิ่งว่าผลลัพธ์ที่ฉันต้องการคืออะไร",
+        "ฉันควบคุมจิตใจไม่ให้ฟุ้งซ่านเมื่ออยู่ในการสนทนากับหัวหน้าหรือเพื่อนร่วมงาน",
+        "ฉันสื่อสารอย่างชัดเจนกับหัวหน้าและเพื่อนร่วมง���น เพื่อให้เกิดผลลัพธ์ที่ดีร่วมกัน",
+        "ฉันรู้ว่าอะไรคือส��่งที่ฉันต้องการและต้องลำดับความสำคัญจากการสนทนานั้น"
+      ]
+    ];
+
+    function startGame() {
+      currentPart = 1;
+      currentQuestion = 1;
+      currentPartScore = 0;
+      partScores = [];
+      selectedScore = null;
+      
+      document.getElementById('start-screen').classList.add('hidden');
+      document.getElementById('game-screen').classList.remove('hidden');
+      updateDisplay();
+    }
+
+    function updateDisplay() {
+      const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+      const partLabel = config.part_label || defaultConfig.part_label;
+      
+      document.getElementById('part-indicator').textContent = `${partLabel} ${currentPart} จาก 5`;
+      document.getElementById('question-indicator').textContent = `คำถามที่ ${currentQuestion} จาก 10`;
+      document.getElementById('q-number').textContent = currentQuestion;
+      document.getElementById('question-text').textContent = questions[currentPart - 1][currentQuestion - 1];
+      document.getElementById('current-score').textContent = currentPartScore;
+      
+      // Update progress bar
+      const totalProgress = ((currentPart - 1) * 10 + currentQuestion) / 50 * 100;
+      document.getElementById('progress-bar').style.width = `${totalProgress}%`;
+      
+      // Reset button selections
+      document.querySelectorAll('.score-btn').forEach(btn => {
+        btn.classList.remove('selected');
+      });
+      selectedScore = null;
+    }
+
+    function selectScore(score) {
+      selectedScore = score;
+      
+      // Update button visuals
+      document.querySelectorAll('.score-btn').forEach(btn => {
+        btn.classList.remove('selected');
+        if (parseInt(btn.dataset.score) === score) {
+          btn.classList.add('selected');
+        }
+      });
+      
+      // Auto-advance after short delay
+      setTimeout(() => {
+        if (selectedScore === score) {
+          submitAnswer();
+        }
+      }, 300);
+    }
+
+    function submitAnswer() {
+      if (selectedScore === null) return;
+      
+      currentPartScore += selectedScore;
+      
+      if (currentQuestion < 10) {
+        currentQuestion++;
+        updateDisplay();
+      } else {
+        showPartResult();
+      }
+    }
+
+    function showPartResult() {
+      const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+      const partLabel = config.part_label || defaultConfig.part_label;
+      
+      partScores.push(currentPartScore);
+      
+      document.getElementById('game-screen').classList.add('hidden');
+      document.getElementById('part-result-screen').classList.remove('hidden');
+      
+      document.getElementById('part-score-display').textContent = currentPartScore;
+      
+      const resultBadge = document.getElementById('result-badge');
+      const resultEmoji = document.getElementById('result-emoji');
+      const partRating = document.getElementById('part-rating');
+      
+      // Part titles
+      const partTitles = [
+        'ตอนที่ 1 ACCOUNTABILITY : สำนึกรับผิดชอบ',
+        'ตอนที่ 2 Belief that barriers are opportunities rather than obstacles : เชื่อว่าอ���ปสรรคคือโอกาสมากกว่าเป็นสิ่งกีดขวาง',
+        '��อนที่ 3 COMMITMENT TO RESULTS : มุ่งมั่นในผลลัพธ์',
+        'ตอนที่ 4 DESIRE TO LEARN : ใฝ่เรียนรู้',
+        'ตอนที่ 5 EFFECTIVE COMMUNICATION : การสื่อสารที่มีประสิทธิภาพ'
+      ];
+      
+      document.getElementById('part-subtitle').textContent = partTitles[currentPart - 1];
+      document.getElementById('part-subtitle-thai').textContent = '';
+      
+      let ratingText = '';
+      if (currentPartScore >= 60) {
+        resultBadge.className = 'result-badge w-32 h-32 mx-auto mb-6 rounded-full flex items-center justify-center bg-gradient-to-br from-emerald-500 to-emerald-600';
+        resultEmoji.textContent = '⭐';
+        resultBadge.style.display = 'flex';
+        
+        if (currentPart === 1) {
+          ratingText = 'ความเป็นเลิศ\nคุณมีความรับผิดชอบอย่างเต็มที่ต่อบทบาทของตนเองในการช่วยเลือผู้จัดการและองค์กรเพื่อตอบสนองความต้องการของลู���ค้า คุณยอมรับผลที่เกิดจากการกระทำของตนเอง ไม่ว่าจะมีประสิทธิภาพหรือไม่ก็ตาม และจากผลลัพธ์ไม่เป็นไปตามที่คาดหวัง คุณจะลงมือแก้ไขและพยายามสร้างผลลัพธ์ที่ดียิ่งขึ้น';
+        } else {
+          ratingText = 'Excellence';
+        }
+        partRating.className = 'text-lg font-semibold text-emerald-400 whitespace-pre-line';
+      } else if (currentPartScore >= 36) {
+        resultBadge.className = 'result-badge w-32 h-32 mx-auto mb-6 rounded-full flex items-center justify-center bg-gradient-to-br from-amber-500 to-amber-600';
+        resultEmoji.textContent = '👍';
+        resultBadge.style.display = 'flex';
+        
+        if (currentPart === 1) {
+          ratingText = 'ดี\nคุณรับผิดชอบต่อผลลัพธ์ของตนเองแต่ยังไม่เห็นภาพรวมขององค์กรเสมอไป บางครั้งอาจหลีกเลี่ยงความรับผิดชอบเมื่อผลงานไม่ดี';
+        } else {
+          ratingText = 'Good';
+        }
+        partRating.className = 'text-lg font-semibold text-amber-400 whitespace-pre-line';
+      } else {
+        resultBadge.className = 'result-badge w-32 h-32 mx-auto mb-6 rounded-full flex items-center justify-center bg-gradient-to-br from-red-500 to-red-600';
+        resultEmoji.textContent = '💪';
+        resultBadge.style.display = 'flex';
+        
+        if (currentPart === 1) {
+          ratingText = '��้องปรับปรุง\nคุณทำงานแต่ไม่ยึดถือความรับผิดชอบอย่างเต็มที่ มักหาข้อแ��้ตัวหรือโทษปัจจัยอื่นเมื่อผลงานไม่เป็นไปตามเป้าหมาย การพัฒนาความรับผิดชอบจะช่วยให้คุณก้าวหน้าและควบคุมงานของตนเองได้ดีขึ้น';
+        } else {
+          ratingText = 'Bad';
+        }
+        partRating.className = 'text-lg font-semibold text-red-400 whitespace-pre-line';
+      }
+      
+      partRating.textContent = ratingText;
+      
+      const nextBtn = document.getElementById('next-part-btn');
+      if (currentPart < 5) {
+        nextBtn.textContent = `ต่อไปยัง${partLabel} ${currentPart + 1}`;
+      } else {
+        nextBtn.textContent = 'ดูผ���ลัพธ์สุดท้าย';
+      }
+    }
+
+    function nextPart() {
+      if (currentPart < 5) {
+        currentPart++;
+        currentQuestion = 1;
+        currentPartScore = 0;
+        selectedScore = null;
+        
+        document.getElementById('part-result-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+        updateDisplay();
+      } else {
+        showFinalResults();
+      }
+    }
+
+    function showFinalResults() {
+      const config = window.elementSdk ? window.elementSdk.config : defaultConfig;
+      const partLabel = config.part_label || defaultConfig.part_label;
+      
+      document.getElementById('part-result-screen').classList.add('hidden');
+      document.getElementById('final-result-screen').classList.remove('hidden');
+      
+      const container = document.getElementById('final-results-container');
+      container.innerHTML = '';
+      
+      let totalScore = 0;
+      
+      partScores.forEach((score, index) => {
+        totalScore += score;
+        
+        let ratingClass, ratingText;
+        if (score >= 60) {
+          ratingClass = 'text-emerald-400 bg-emerald-500/20';
+          ratingText = 'ความเป็นเ���ิศ';
+        } else if (score >= 36) {
+          ratingClass = 'text-amber-400 bg-amber-500/20';
+          ratingText = 'ดี';
+        } else {
+          ratingClass = 'text-red-400 bg-red-500/20';
+          ratingText = 'ต้องปรับปรุง';
+        }
+        
+        container.innerHTML += `
+          <div class="bg-slate-800/70 rounded-xl p-4 border border-slate-700 flex justify-between items-center">
+            <span class="text-slate-300 font-medium">${partLabel}ที่ ${index + 1}</span>
+            <div class="flex items-center gap-3">
+              <span class="text-2xl font-bold text-white">${score}</span>
+              <span class="px-3 py-1 rounded-full text-sm font-medium ${ratingClass}">${ratingText}</span>
+            </div>
+          </div>
+        `;
+      });
+      
+      document.getElementById('total-score').textContent = totalScore;
+    }
+
+    function restartGame() {
+      document.getElementById('final-result-screen').classList.add('hidden');
+      document.getElementById('start-screen').classList.remove('hidden');
+      // Reset all game state
+      currentPart = 1;
+      currentQuestion = 1;
+      currentPartScore = 0;
+      partScores = [];
+      selectedScore = null;
+    }
+
+    // Element SDK initialization
+    async function onConfigChange(config) {
+      const title = config.game_title || defaultConfig.game_title;
+      document.getElementById('main-title').textContent = title;
+      
+      // Update part labels if game is in progress
+      if (!document.getElementById('game-screen').classList.contains('hidden')) {
+        updateDisplay();
+      }
+    }
+
+    function mapToCapabilities(config) {
+      return {
+        recolorables: [],
+        borderables: [],
+        fontEditable: undefined,
+        fontSizeable: undefined
+      };
+    }
+
+    function mapToEditPanelValues(config) {
+      return new Map([
+        ['game_title', config.game_title || defaultConfig.game_title],
+        ['part_label', config.part_label || defaultConfig.part_label]
+      ]);
+    }
+
+    // Initialize SDK
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange,
+        mapToCapabilities,
+        mapToEditPanelValues
+      });
+    }
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9cfe895821477b6a',t:'MTc3MTQyODMyMC4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
